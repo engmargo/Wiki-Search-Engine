@@ -39,7 +39,13 @@ class Ranker:
         self.stopwords = stopwords
         self.raw_text_dict = raw_text_dict
 
-    def query(self, query: str) -> list[tuple[int, float]]:
+    def query(
+        self,
+        query: str,
+        pseudofeedback_num_docs=0,
+        pseudofeedback_alpha=0.8,
+        pseudofeedback_beta=0.2,
+    ) -> list[tuple[int, float]]:
         """
         Searches the collection for relevant documents to the query and
         returns a list of documents ordered by their relevance (most relevant first).
@@ -62,20 +68,52 @@ class Ranker:
         #  Fetch a list of possible documents from the index
         doctokens = self.get_doc_tokens(list(qtokens_count.keys()))
 
-        #  Run RelevanceScorer (like BM25 from below classes) (implemented as relevance classes)
-        scorelist = []
+        if len(doctokens)==0:
+            return []
+        else:
+            # ranks for initial query
+            scorelist = []
+            for id in doctokens:
+                scorelist.append((id, self.scorer.score(id, doctokens[id], qtokens_count)))
 
-        # start = time.time()
-        for id in doctokens.keys():
-            scorelist.append((id, self.scorer.score(id, doctokens[id], qtokens_count)))
-        # end = time.time()
-        # print(f'time:{end-start}')
-        
-        # Return **sorted** results as format [{docid: 100, score:0.5}, {{docid: 10, score:0.2}}]
+            sortedscore = sorted(scorelist, key=lambda x: x[1], reverse=True)
 
-        sortedscore = sorted(scorelist, key=lambda x: x[1], reverse=True)
+            if pseudofeedback_num_docs > 0:
+                pseudo_doc = defaultdict(int)
+                num = 0
 
-        return sortedscore
+                for doc in sortedscore:
+                    if num < pseudofeedback_num_docs:
+                        for word, freq in doctokens[doc[0]].items():
+                            pseudo_doc[word] += freq
+                        num += 1
+                    else:
+                        break
+                    
+                weighted_qtokens = {
+                    word: freq * pseudofeedback_alpha
+                    for word, freq in qtokens_count.items()
+                }
+                weighted_dtokens = {
+                    word: freq * pseudofeedback_beta / num
+                    for word, freq in pseudo_doc.items()
+                }
+                new_qtokens_count = Counter(weighted_dtokens) + Counter(weighted_qtokens)
+                    
+                # redo the scoring for new query
+                
+                doctokens = self.get_doc_tokens(list(new_qtokens_count.keys()))
+
+                scorelist = []
+                for id in doctokens.keys():
+                    scorelist.append(
+                        (id, self.scorer.score(id, doctokens[id], new_qtokens_count))
+                    )
+
+                sortedscore = sorted(scorelist, key=lambda x: x[1], reverse=True)
+
+            # 3. Return **sorted** results as format [(100, 0.5), (10, 0.2), ...]
+            return sortedscore
 
     def get_Counter(self, qtokens, stopwords):
         qtokens = [token if token not in stopwords else None for token in qtokens]

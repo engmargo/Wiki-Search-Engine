@@ -179,7 +179,14 @@ class L2RRanker:
         #  Return a prediction made using the LambdaMART model
         return predict_rank
 
-    def query(self, query: str) -> list[tuple[int, float]]:
+    def query(
+        self,
+        query: str,
+        pseudofeedback_num_docs=0,
+        pseudofeedback_alpha=0.8,
+        pseudofeedback_beta=0.2,
+        user_id=None,
+    ) -> list[tuple[int, float]]:
         """
         Retrieves potentially-relevant documents, constructs feature vectors for each query-document pair,
         uses the L2R model to rank these documents, and returns the ranked documents.
@@ -218,7 +225,12 @@ class L2RRanker:
                     break
 
             if flag:
-                dcandidates = self.ranker.query(query)
+                dcandidates = self.ranker.query(
+                    query,
+                    pseudofeedback_num_docs,
+                    pseudofeedback_alpha,
+                    pseudofeedback_beta,
+                )
                 x_predict = []
 
                 # Construct the feature vectors for each query-document pair in the top 100
@@ -584,7 +596,7 @@ class L2RFeatureExtractor:
         feature_vector.append(self.get_hits_hub_score(docid))
         #  HITS Authority
         feature_vector.append(self.get_hits_authority_score(docid))
-        #  (HW3) Cross-Encoder Score
+        #  Cross-Encoder Score
         # feature_vector.append(1)
         feature_vector.append(
             self.get_cross_encoder_score(docid, query)

@@ -1,6 +1,7 @@
 from sentence_transformers import SentenceTransformer, util
 from numpy import ndarray
 from ranker import Ranker
+import numpy as np
 
 
 class VectorRanker(Ranker):
@@ -22,7 +23,14 @@ class VectorRanker(Ranker):
         self.encoded_docs = encoded_docs
         self.row_to_docid = row_to_docid
 
-    def query(self, query: str) -> list[tuple[int, float]]:
+    def query(
+        self,
+        query: str,
+        pseudofeedback_num_docs=0,
+        pseudofeedback_alpha=0.8,
+        pseudofeedback_beta=0.2
+        # user_id=None,
+    ) -> list[tuple[int, float]]:
         """
         Encodes the query and then scores the relevance of the query with all the documents.
 
@@ -40,14 +48,38 @@ class VectorRanker(Ranker):
             #   Encode the query using the bi-encoder
             embedding_query = self.biencoder_model.encode(query)
             #   Score the similarity of the query vector and document vectors for relevance
-            # Calculate the dot products between the query embedding and all document embeddings
-            sscores = (
-                util.dot_score(embedding_query, self.encoded_docs)[0].cpu().tolist()
-            )
-            # self.biencoder_model.similarity(embedding_query,self.encoded_docs).numpy()
-            #   Generate the ordered list of (document id, score) tuples
-            scorelist = list(zip(self.row_to_docid, sscores))
-            #   Sort the list so most relevant are first
-            scorelist = sorted(scorelist, key=lambda x: x[1], reverse=True)
+            scorelist = self.get_scorelist(embedding_query, self.encoded_docs)
+
+            if pseudofeedback_num_docs > 0:
+                id2row = {id:row for row,id in enumerate(self.row_to_docid)}
+                
+                reldocs=[]
+                for id,doc in enumerate(scorelist):
+                    if id<pseudofeedback_num_docs:
+                        reldocs.append(self.encoded_docs[id2row[doc[0]]])
+                    else:
+                        break
+                
+                avg_reldocs = np.mean(reldocs, axis=0)
+                new_embedding_query = np.multiply(
+                    embedding_query, pseudofeedback_alpha
+                ) + np.multiply(avg_reldocs, pseudofeedback_beta)
+
+                scorelist = self.get_scorelist(new_embedding_query, self.encoded_docs)
 
             return scorelist
+    
+    def get_scorelist(
+        self, embedding_query: list, encoded_docs: list
+    ) -> list[tuple[int, float]]:
+
+        sscores = util.dot_score(embedding_query, encoded_docs)[0].cpu().tolist()
+        # self.biencoder_model.similarity(embedding_query,self.encoded_docs).numpy()
+        # Generate the ordered list of (document id, score) tuples
+        scorelist = list(zip(self.row_to_docid, sscores))
+        # Sort the list so most relevant are first
+        scorelist = sorted(scorelist, key=lambda x: x[1], reverse=True)
+
+        return scorelist
+
+
