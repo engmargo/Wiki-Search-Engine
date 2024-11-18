@@ -37,7 +37,6 @@ class InvertedIndex:
         )  # metadata like length, number of unique tokens of the documents
 
         self.index = defaultdict(list)  # the index "token":[id,frequency, [positions]]
-        self.title_index = defaultdict(list)
 
     def __iter__(self):
         yield {
