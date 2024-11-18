@@ -314,7 +314,6 @@ class L2RFeatureExtractor:
         self.tindex = title_index
         self.tokenizer = document_preprocessor
         self.stopwords = stopwords
-        self.ntfeatures = docid_to_network_features
         self.doc_category_info = doc_category_info
         self.docid_to_network_features = docid_to_network_features
 
