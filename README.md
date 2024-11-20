@@ -3,22 +3,22 @@ A 200k-articles-based Wikipedia Search Engine using multiple NLP models, ranging
 
 ## The Current Best Performing Model in this project
 ### Streamline
-document_preprocessor: RegexTokenizer('\w+')
-l2r: True
-VectorRanker
-psedofeedback: {pseudofeedback_num_docs=10, pseudofeedback_alpha=0.5, pseudofeedback_beta=0.5}
+- document_preprocessor: RegexTokenizer('\w+')
+- l2r: True
+- VectorRanker
+- psedofeedback: {pseudofeedback_num_docs=10, pseudofeedback_alpha=0.5, pseudofeedback_beta=0.5}
 
 ### Performance
 mymodel outperformed baseline(L2R+BM25) in terms of MAP 64% and comparable at ndcg (-3%).
 
 ![alt text](image-1.png)
 
-In parentheses is interval range given 95% significange level
 | Dataset | MAP | NDCG |
 |---------|-----|------|
 | mymodel|   0.064(0.018,0.110)  | 0.331(0.296,0.366)     |
 | L2R_BM25   | 0.039(0.018,0.060)    |  0.344(0.308,0.379)    |
 
+In parentheses is interval range given 95% significance level
 
 ## Pipeline Overview
 ![alt text](image.png)
